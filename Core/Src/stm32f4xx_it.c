@@ -56,7 +56,8 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-
+extern TIM_HandleTypeDef htim14;
+extern DMA_HandleTypeDef hdma_usart2_tx;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -198,6 +199,48 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f4xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles DMA1 stream6 global interrupt.
+  */
+void DMA1_Stream6_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream6_IRQn 0 */
+
+  /* USER CODE END DMA1_Stream6_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart2_tx);
+  /* USER CODE BEGIN DMA1_Stream6_IRQn 1 */
+
+  /* USER CODE END DMA1_Stream6_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line[15:10] interrupts.
+  */
+void EXTI15_10_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI15_10_IRQn 0 */
+
+  /* USER CODE END EXTI15_10_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_13);
+  /* USER CODE BEGIN EXTI15_10_IRQn 1 */
+
+  /* USER CODE END EXTI15_10_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM8 trigger and commutation interrupts and TIM14 global interrupt.
+  */
+void TIM8_TRG_COM_TIM14_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM8_TRG_COM_TIM14_IRQn 0 */
+
+  /* USER CODE END TIM8_TRG_COM_TIM14_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim14);
+  /* USER CODE BEGIN TIM8_TRG_COM_TIM14_IRQn 1 */
+
+  /* USER CODE END TIM8_TRG_COM_TIM14_IRQn 1 */
+}
 
 /* USER CODE BEGIN 1 */
 

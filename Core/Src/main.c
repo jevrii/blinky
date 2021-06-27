@@ -46,6 +46,7 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim14;
 
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 bool cdc_dtr;
@@ -54,11 +55,12 @@ bool cdc_dtr;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM14_Init(void);
 static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
-
+void DMATransferComplete(DMA_HandleTypeDef *hdma);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -73,6 +75,7 @@ int x = 0;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	char msg[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse euismod elit quis interdum laoreet. Proin consectetur eget purus ut tempus. Suspendisse augue lectus, lobortis id neque id, vestibulum convallis leo. Duis ipsum eros, tristique in ipsum tempus, semper scelerisque lacus. Nam rhoncus nunc eu congue mollis. Donec blandit ipsum quis semper sodales. Maecenas mauris orci, tincidunt at massa vitae, pellentesque vestibulum dui. Ut tincidunt turpis odio, id feugiat metus rhoncus ligula.\r\n";
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -93,12 +96,14 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM14_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start(&htim14);
+  HAL_TIM_Base_Start_IT(&htim14);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_DMA_RegisterCallback(&hdma_usart2_tx, HAL_DMA_XFER_CPLT_CB_ID, &DMATransferComplete);
 
   /* USER CODE END 2 */
 
@@ -106,21 +111,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-	  uint16_t timer_val = __HAL_TIM_GET_COUNTER(&htim14);
-	HAL_Delay(50);
-	  timer_val = __HAL_TIM_GET_COUNTER(&htim14) - timer_val;
-	uint8_t buf[12];
-	snprintf (buf, sizeof(buf), "%d\r\n",timer_val);
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET) {
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
-		htim1.Instance->CCR1 = 1000;
-	}
-	else {
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-		htim1.Instance->CCR1 = 4000;
-	}
-	HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
+	  huart2.Instance->CR3 |= USART_CR3_DMAT;
+	  HAL_DMA_Start_IT(&hdma_usart2_tx, (uint32_t)msg, (uint32_t)&huart2.Instance->DR, strlen(msg));
+
+//	  uint16_t timer_val = __HAL_TIM_GET_COUNTER(&htim14);
+//	HAL_Delay(50);
+//	  timer_val = __HAL_TIM_GET_COUNTER(&htim14) - timer_val;
+//	uint8_t buf[12];
+//	snprintf (buf, sizeof(buf), "%d\r\n",timer_val);
+//	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET) {
+////		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+//		htim1.Instance->CCR1 = 1000;
+//	}
+//	else {
+////		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+//		htim1.Instance->CCR1 = 4000;
+//	}
+	HAL_Delay(600);
+//	HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
 //	CDC_Transmit_FS((uint8_t*) msg, 12);
     /* USER CODE END WHILE */
 
@@ -254,9 +262,9 @@ static void MX_TIM14_Init(void)
 
   /* USER CODE END TIM14_Init 1 */
   htim14.Instance = TIM14;
-  htim14.Init.Prescaler = 72-1;
+  htim14.Init.Prescaler = 7200-1;
   htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim14.Init.Period = 65535;
+  htim14.Init.Period = 10000;
   htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
@@ -303,6 +311,22 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -343,10 +367,36 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim14)
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+}
 
+void DMATransferComplete(DMA_HandleTypeDef *hdma) {
+	huart2.Instance->CR3 &= ~USART_CR3_DMAT;
+	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+}
+
+bool off = false;
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if(GPIO_Pin == GPIO_PIN_13) // If The INT Source Is EXTI Line9 (A9 Pin)
+    {
+    	if (!off)
+    		htim1.Instance->CCR1 = 1000;
+    	else
+    		htim1.Instance->CCR1 = 4000;
+    	off = !off;
+    }
+}
 /* USER CODE END 4 */
 
 /**
