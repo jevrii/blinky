@@ -53,6 +53,8 @@ DMA_HandleTypeDef hdma_usart2_tx;
 /* USER CODE BEGIN PV */
 bool cdc_dtr;
 uint8_t rx_data[8];
+uint8_t tx_data[8];
+uint32_t TxMailbox;
 
 CAN_TxHeaderTypeDef pHeader; //declare a specific header for message transmittions
 CAN_RxHeaderTypeDef pRxHeader; //declare header for message reception
@@ -127,7 +129,7 @@ int main(void)
 //	HAL_Delay(50);
 //	  timer_val = __HAL_TIM_GET_COUNTER(&htim14) - timer_val;
 	uint8_t buf[30];
-	sprintf (buf, "%d\r\n", (uint16_t)(rx_data[0] << 8 | rx_data[1]));
+	sprintf (buf, "%d pos %d vel %d\r\n", x, (uint16_t)(rx_data[0] << 8 | rx_data[1]), (int16_t)(rx_data[2] << 8 | rx_data[3]));
 
 //	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET) {
 ////		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
@@ -137,9 +139,25 @@ int main(void)
 ////		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
 //		htim1.Instance->CCR1 = 4000;
 //	}
-	HAL_Delay(100);
+	HAL_Delay(1000);
 	HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
 	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+
+	tx_data[0] = 0x00;
+	tx_data[1] = 0x00;
+	tx_data[2] = 0x0F;
+	tx_data[3] = 0x00;
+	tx_data[4] = 0x0F;
+	tx_data[5] = 0x00;
+	tx_data[6] = 0x0F;
+	tx_data[7] = 0x00;
+
+	pHeader.DLC=8; //give message size of 1 byte
+	pHeader.IDE=CAN_ID_STD; //set identifier to standard
+	pHeader.RTR=CAN_RTR_DATA; //set data type to remote transmission request?
+	pHeader.StdId=0x200; //define a standard identifier, used for message identification by filters (switch this for the other microcontroller)
+
+	HAL_CAN_AddTxMessage(&hcan1, &pHeader, tx_data, &TxMailbox);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
