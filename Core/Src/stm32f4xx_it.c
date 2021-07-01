@@ -56,10 +56,15 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern CAN_HandleTypeDef hcan1;
 extern TIM_HandleTypeDef htim14;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 /* USER CODE BEGIN EV */
-
+extern CAN_HandleTypeDef hcan1;
+extern CAN_TxHeaderTypeDef pHeader;
+extern CAN_RxHeaderTypeDef pRxHeader;
+extern uint8_t rx_data[8];
+extern int x;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -212,6 +217,22 @@ void DMA1_Stream6_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Stream6_IRQn 1 */
 
   /* USER CODE END DMA1_Stream6_IRQn 1 */
+}
+
+/**
+  * @brief This function handles CAN1 RX0 interrupt.
+  */
+void CAN1_RX0_IRQHandler(void)
+{
+  /* USER CODE BEGIN CAN1_RX0_IRQn 0 */
+
+  /* USER CODE END CAN1_RX0_IRQn 0 */
+  HAL_CAN_IRQHandler(&hcan1);
+  /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
+  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, &rx_data);
+  x++;
+
+  /* USER CODE END CAN1_RX0_IRQn 1 */
 }
 
 /**
