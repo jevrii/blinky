@@ -59,7 +59,7 @@
 /* External variables --------------------------------------------------------*/
 extern CAN_HandleTypeDef hcan1;
 extern TIM_HandleTypeDef htim14;
-extern DMA_HandleTypeDef hdma_usart2_tx;
+extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
 extern CAN_HandleTypeDef hcan1;
 extern CAN_TxHeaderTypeDef pHeader;
@@ -68,6 +68,7 @@ extern uint8_t rx_data[8];
 extern uint8_t tx_data[8];
 extern int x;
 extern uint32_t TxMailbox;
+extern int p_target;
 
 extern bool is_first;
 extern int last_pos;
@@ -213,29 +214,15 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-  * @brief This function handles DMA1 stream6 global interrupt.
-  */
-void DMA1_Stream6_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Stream6_IRQn 0 */
-
-  /* USER CODE END DMA1_Stream6_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart2_tx);
-  /* USER CODE BEGIN DMA1_Stream6_IRQn 1 */
-
-  /* USER CODE END DMA1_Stream6_IRQn 1 */
-}
-
-/**
   * @brief This function handles CAN1 RX0 interrupt.
   */
 void CAN1_RX0_IRQHandler(void)
 {
-	/* USER CODE BEGIN CAN1_RX0_IRQn 0 */
+  /* USER CODE BEGIN CAN1_RX0_IRQn 0 */
 
-	/* USER CODE END CAN1_RX0_IRQn 0 */
-	HAL_CAN_IRQHandler(&hcan1);
-	/* USER CODE BEGIN CAN1_RX0_IRQn 1 */
+  /* USER CODE END CAN1_RX0_IRQn 0 */
+  HAL_CAN_IRQHandler(&hcan1);
+  /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
 	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, &rx_data);
 	x++;
 
@@ -258,7 +245,6 @@ void CAN1_RX0_IRQHandler(void)
 	}
 	last_pos = pos_fb;
 
-	int p_target = 8000;
 //	int16_t vel_target = 2000;
 	int v_target_p = (p_target - cur_pos);
 	if (v_target_p > 4000)
@@ -291,6 +277,20 @@ void CAN1_RX0_IRQHandler(void)
 	HAL_CAN_AddTxMessage(&hcan1, &pHeader, tx_data, &TxMailbox);
 
   /* USER CODE END CAN1_RX0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+
+  /* USER CODE END USART2_IRQn 0 */
+  HAL_UART_IRQHandler(&huart2);
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
 }
 
 /**

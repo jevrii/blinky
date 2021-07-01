@@ -48,7 +48,6 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim14;
 
 UART_HandleTypeDef huart2;
-DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 bool cdc_dtr;
@@ -65,12 +64,12 @@ CAN_RxHeaderTypeDef pRxHeader; //declare header for message reception
 bool is_first = true;
 int last_pos;
 int cur_pos;
+uint8_t UART1_rxBuffer[12] = {0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM14_Init(void);
 static void MX_TIM1_Init(void);
@@ -82,6 +81,7 @@ void DMATransferComplete(DMA_HandleTypeDef *hdma);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 int x = 0;
+int p_target = 8000;
 void can_filter_init(void);
 /* USER CODE END 0 */
 
@@ -92,7 +92,6 @@ void can_filter_init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	char msg[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse euismod elit quis interdum laoreet. Proin consectetur eget purus ut tempus. Suspendisse augue lectus, lobortis id neque id, vestibulum convallis leo. Duis ipsum eros, tristique in ipsum tempus, semper scelerisque lacus. Nam rhoncus nunc eu congue mollis. Donec blandit ipsum quis semper sodales. Maecenas mauris orci, tincidunt at massa vitae, pellentesque vestibulum dui. Ut tincidunt turpis odio, id feugiat metus rhoncus ligula.\r\n";
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -113,7 +112,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM14_Init();
   MX_TIM1_Init();
@@ -121,6 +119,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim14);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_UART_Receive_IT (&huart2, UART1_rxBuffer, 4);
 
   can_filter_init();
 	HAL_CAN_Start(&hcan1); //start CAN
@@ -147,8 +146,8 @@ int main(void)
 //		htim1.Instance->CCR1 = 4000;
 //	}
 	HAL_Delay(50);
-	HAL_UART_Transmit(&huart2, buf, strlen((char*)buf), HAL_MAX_DELAY);
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+//	HAL_UART_Transmit(&huart2, &cur_pos, sizeof(cur_pos), HAL_MAX_DELAY);
+//	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -367,22 +366,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Stream6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -467,6 +450,15 @@ void can_filter_init(void)
     can_filter_st.FilterBank = 0;
     can_filter_st.FilterFIFOAssignment = CAN_RX_FIFO0;
     HAL_CAN_ConfigFilter(&hcan1, &can_filter_st);
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart->Instance == USART2) {
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+		HAL_UART_Receive_IT (&huart2, UART1_rxBuffer, 4);
+		p_target = UART1_rxBuffer[0] << 24 | UART1_rxBuffer[1] << 16 | UART1_rxBuffer[2] << 8 | UART1_rxBuffer[3];
+	}
 }
 /* USER CODE END 4 */
 
