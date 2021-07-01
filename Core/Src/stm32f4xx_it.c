@@ -23,6 +23,7 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,7 +65,13 @@ extern CAN_HandleTypeDef hcan1;
 extern CAN_TxHeaderTypeDef pHeader;
 extern CAN_RxHeaderTypeDef pRxHeader;
 extern uint8_t rx_data[8];
+extern uint8_t tx_data[8];
 extern int x;
+extern uint32_t TxMailbox;
+
+extern bool is_first;
+extern int last_pos;
+extern int cur_pos;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -224,13 +231,64 @@ void DMA1_Stream6_IRQHandler(void)
   */
 void CAN1_RX0_IRQHandler(void)
 {
-  /* USER CODE BEGIN CAN1_RX0_IRQn 0 */
+	/* USER CODE BEGIN CAN1_RX0_IRQn 0 */
 
-  /* USER CODE END CAN1_RX0_IRQn 0 */
-  HAL_CAN_IRQHandler(&hcan1);
-  /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
-  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, &rx_data);
-  x++;
+	/* USER CODE END CAN1_RX0_IRQn 0 */
+	HAL_CAN_IRQHandler(&hcan1);
+	/* USER CODE BEGIN CAN1_RX0_IRQn 1 */
+	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, &rx_data);
+	x++;
+
+	int pos_fb = (rx_data[0] << 8 | rx_data[1]);
+	int16_t vel_fb = (int16_t)(rx_data[2] << 8 | rx_data[3]);
+
+	if (is_first) {
+		last_pos = pos_fb;
+		is_first = false;
+	}
+
+	if (pos_fb - last_pos > 4096) {
+		cur_pos += pos_fb - last_pos - 8192;
+	}
+	else if (pos_fb - last_pos < -4096) {
+		cur_pos += pos_fb - last_pos + 8192;
+	}
+	else {
+		cur_pos += pos_fb - last_pos;
+	}
+	last_pos = pos_fb;
+
+	int p_target = 8000;
+//	int16_t vel_target = 2000;
+	int v_target_p = (p_target - cur_pos);
+	if (v_target_p > 4000)
+		v_target_p = 4000;
+	if (v_target_p < -4000)
+		v_target_p = -4000;
+	int16_t vel_target = v_target_p;
+
+
+	int32_t current_output = (vel_target - vel_fb) * 20.0;
+	if (current_output > 0xfff)
+		current_output = 0xfff;
+	if (current_output < -(0xfff))
+		current_output = -(0xfff);
+
+	tx_data[0] = ((current_output >> 8) & 0xff);
+	tx_data[1] = (current_output & 0xff);
+	tx_data[2] = 0x0F;
+	tx_data[3] = 0x00;
+	tx_data[4] = 0x0F;
+	tx_data[5] = 0x00;
+	tx_data[6] = 0x0F;
+	tx_data[7] = 0x00;
+
+	pHeader.DLC=8; //give message size of 1 byte
+	pHeader.IDE=CAN_ID_STD; //set identifier to standard
+	pHeader.RTR=CAN_RTR_DATA; //set data type to remote transmission request?
+	pHeader.StdId=0x200; //define a standard identifier, used for message identification by filters (switch this for the other microcontroller)
+
+	HAL_CAN_AddTxMessage(&hcan1, &pHeader, tx_data, &TxMailbox);
 
   /* USER CODE END CAN1_RX0_IRQn 1 */
 }
